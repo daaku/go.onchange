@@ -143,16 +143,16 @@ func main() {
 	}
 
 	go func() {
-	dirs := dirsToWatch(pkg)
-	for _, d := range dirs {
-		if *verbose {
-			log.Printf("Watching %s", d)
+		dirs := dirsToWatch(pkg)
+		for _, d := range dirs {
+			if *verbose {
+				log.Printf("Watching %s", d)
+			}
+			err = watcher.Watch(d)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
-		err = watcher.Watch(d)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
 	}()
 	if *verbose {
 		log.Printf("About to compile.")
