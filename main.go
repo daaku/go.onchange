@@ -70,30 +70,18 @@ func contains(list []string, item string) bool {
 	return false
 }
 
-func pruneDirs(dirs []string) []string {
-	newDirs := []string{}
-Outer:
-	for _, d := range dirs {
-		parent := d
-		for parent != "/" {
-			if contains(newDirs, parent) {
-				if *verbose {
-					log.Printf("Skipping %s because found parent %s", d, parent)
-				}
-				continue Outer
-			}
-			parent = filepath.Dir(parent)
+func unique(list []string) []string {
+	ret := make([]string, 0, len(list))
+	for _, i := range list {
+		if !contains(ret, i) {
+			ret = append(ret, i)
 		}
-		if *verbose {
-			log.Printf("Including %s", d)
-		}
-		newDirs = append(newDirs, d)
 	}
-	return newDirs
+	return ret
 }
 
 func dirsToWatch(pkg *build.Package) []string {
-	return pruneDirs(dirsToWatchHelper([]string{}, pkg))
+	return unique(dirsToWatchHelper([]string{}, pkg))
 }
 
 func dirsToWatchHelper(dirs []string, pkg *build.Package) []string {
