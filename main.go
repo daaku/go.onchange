@@ -1,15 +1,15 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"path/filepath"
+	"github.com/howeyc/fsnotify"
 	"go/build"
 	"io/ioutil"
-	"github.com/howeyc/fsnotify"
 	"log"
 	"os"
 	"os/exec"
-	"flag"
+	"path/filepath"
 	"regexp"
 )
 
@@ -18,10 +18,10 @@ var (
 		"The regexp pattern to match file names against to watch for changes.")
 	verbose = flag.Bool("v", false, "Verbose mode.")
 
-	pkg *build.Package
-	goBin string
-	commandBin string
-	process *os.Process
+	pkg         *build.Package
+	goBin       string
+	commandBin  string
+	process     *os.Process
 	commandArgv []string
 )
 
