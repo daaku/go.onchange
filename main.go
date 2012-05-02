@@ -141,6 +141,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	go func() {
 	dirs := dirsToWatch(pkg)
 	for _, d := range dirs {
 		if *verbose {
@@ -151,6 +153,7 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+	}()
 	if *verbose {
 		log.Printf("About to compile.")
 	}
