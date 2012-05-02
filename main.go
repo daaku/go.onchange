@@ -67,13 +67,15 @@ func run() (process *os.Process, err error) {
 	}
 	argsWithName := []string{basename()}
 	argsWithName = append(argsWithName, commandArgv...)
-	return os.StartProcess(commandBin, argsWithName, &os.ProcAttr{
+	p, e := os.StartProcess(commandBin, argsWithName, &os.ProcAttr{
 		Files: []*os.File{
 			nil,
 			os.Stdout,
 			os.Stderr,
 		},
 	})
+	_ = os.Remove(commandBin)
+	return p, e
 }
 
 func main() {
