@@ -31,7 +31,6 @@ func init() {
 	if err != nil {
 		cwd = "/"
 	}
-	log.Println(flag.Args())
 	pkg, err = build.Import(flag.Arg(0), cwd, build.FindOnly)
 	if err != nil {
 		log.Fatalf("Can't load package: %s", err)
@@ -40,7 +39,6 @@ func init() {
 	if err != nil {
 		log.Fatalf("Error finding go binary: %s", err)
 	}
-	log.Printf("%+v\n", pkg)
 }
 
 func basename() string {
@@ -48,7 +46,7 @@ func basename() string {
 }
 
 func compile() error {
-	tempFile, err := ioutil.TempFile("", basename())
+	tempFile, err := ioutil.TempFile("", basename() + "-")
 	if err != nil {
 		return err
 	}
