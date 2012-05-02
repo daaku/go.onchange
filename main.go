@@ -31,7 +31,7 @@ func init() {
 	if err != nil {
 		cwd = "/"
 	}
-	pkg, err = build.Import(flag.Arg(0), cwd, build.FindOnly)
+	pkg, err = build.Import(flag.Arg(0), cwd, build.AllowBinary)
 	if err != nil {
 		log.Fatalf("Can't load package: %s", err)
 	}
@@ -46,7 +46,7 @@ func basename() string {
 }
 
 func compile() error {
-	tempFile, err := ioutil.TempFile("", basename() + "-")
+	tempFile, err := ioutil.TempFile("", basename()+"-")
 	if err != nil {
 		return err
 	}
@@ -59,6 +59,66 @@ func compile() error {
 	}
 	commandBin = tempFile.Name()
 	return nil
+}
+
+func contains(list []string, item string) bool {
+	for _, i := range list {
+		if item == i {
+			return true
+		}
+	}
+	return false
+}
+
+func pruneDirs(dirs []string) []string {
+	newDirs := []string{}
+Outer:
+	for _, d := range dirs {
+		parent := d
+		for parent != "/" {
+			if contains(newDirs, parent) {
+				if *verbose {
+					log.Printf("Skipping %s because found parent %s", d, parent)
+				}
+				continue Outer
+			}
+			parent = filepath.Dir(parent)
+		}
+		if *verbose {
+			log.Printf("Including %s", d)
+		}
+		newDirs = append(newDirs, d)
+	}
+	return newDirs
+}
+
+func dirsToWatch(pkg *build.Package) []string {
+	return pruneDirs(dirsToWatchHelper([]string{}, pkg))
+}
+
+func dirsToWatchHelper(dirs []string, pkg *build.Package) []string {
+	if contains(dirs, pkg.Dir) {
+		return dirs
+	}
+	filepath.Walk(pkg.Dir, func(path string, info os.FileInfo, err error) error {
+		if filepath.Base(info.Name())[0] == '.' {
+			return filepath.SkipDir
+		}
+		if info.IsDir() {
+			dirs = append(dirs, path)
+		}
+		return nil
+	})
+	for _, path := range pkg.Imports {
+		imp, err := build.Import(path, pkg.Dir, build.AllowBinary)
+		if err == nil {
+			dirs = dirsToWatchHelper(dirs, imp)
+		} else if *verbose {
+			log.Printf(
+				"Skipping unresolvable import path %s with error %s", path, err)
+		}
+	}
+	return dirs
 }
 
 func run() (process *os.Process, err error) {
@@ -93,12 +153,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if *verbose {
-		log.Printf("Watching %s.", pkg.Dir)
-	}
-	err = watcher.Watch(pkg.Dir)
-	if err != nil {
-		log.Fatal(err)
+	dirs := dirsToWatch(pkg)
+	for _, d := range dirs {
+		if *verbose {
+			log.Printf("Watching %s", d)
+		}
+		err = watcher.Watch(d)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	if *verbose {
 		log.Printf("About to compile.")
