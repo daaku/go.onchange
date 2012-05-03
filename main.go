@@ -177,13 +177,17 @@ func main() {
 			if *verbose {
 				log.Println("event:", ev)
 			}
-			if re.Match([]byte(ev.Name)) {
+			if filepath.Base(ev.Name)[0] == '.' {
 				if *verbose {
-					log.Println("Change triggered restart.")
+					log.Printf("Ignored changed dot file %s", ev.Name)
+				}
+			} else if re.Match([]byte(ev.Name)) {
+				if *verbose {
+					log.Printf("Change triggered restart: %s", ev.Name)
 				}
 				err = compile()
 				if err != nil {
-					log.Println("Ignoring failed compile: %s", err)
+					log.Printf("Ignoring failed compile: %s", err)
 					continue
 				}
 				process.Kill()
@@ -191,6 +195,10 @@ func main() {
 				process, err = run()
 				if err != nil {
 					log.Fatal(err)
+				}
+			} else {
+				if *verbose {
+					log.Printf("Ignored changed file %s", ev.Name)
 				}
 			}
 		case err := <-watcher.Error:
