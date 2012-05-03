@@ -71,33 +71,14 @@ func contains(list []string, item string) bool {
 	return false
 }
 
-func unique(list []string) []string {
-	ret := make([]string, 0, len(list))
-	for _, i := range list {
-		if !contains(ret, i) {
-			ret = append(ret, i)
-		}
-	}
-	return ret
-}
-
 func dirsToWatch(pkg *build.Package) []string {
-	return unique(dirsToWatchHelper([]string{}, pkg))
+	return dirsToWatchHelper([]string{}, pkg)
 }
 
 func dirsToWatchHelper(dirs []string, pkg *build.Package) []string {
 	if contains(dirs, pkg.Dir) {
 		return dirs
 	}
-	filepath.Walk(pkg.Dir, func(path string, info os.FileInfo, err error) error {
-		if filepath.Base(info.Name())[0] == '.' {
-			return filepath.SkipDir
-		}
-		if info.IsDir() {
-			dirs = append(dirs, path)
-		}
-		return nil
-	})
 	for _, path := range pkg.Imports {
 		imp, err := build.Import(path, pkg.Dir, build.AllowBinary)
 		if err == nil {
@@ -107,6 +88,15 @@ func dirsToWatchHelper(dirs []string, pkg *build.Package) []string {
 				"Skipping unresolvable import path %s with error %s", path, err)
 		}
 	}
+	filepath.Walk(pkg.Dir, func(path string, info os.FileInfo, err error) error {
+		if filepath.Base(info.Name())[0] == '.' {
+			return filepath.SkipDir
+		}
+		if info.IsDir() && !contains(dirs, path) {
+			dirs = append(dirs, path)
+		}
+		return nil
+	})
 	return dirs
 }
 
