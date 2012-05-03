@@ -20,8 +20,8 @@ var (
 
 	pkg         *build.Package
 	goBin       string
-	commandBin  string
 	process     *os.Process
+	commandBin  string
 	commandArgv []string
 )
 
@@ -39,6 +39,7 @@ func init() {
 	if err != nil {
 		log.Fatalf("Error finding go binary: %s", err)
 	}
+	commandArgv = flag.Args()[1:flag.NArg()]
 }
 
 func basename() string {
