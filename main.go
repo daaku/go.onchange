@@ -1,3 +1,6 @@
+// Command go.onchange automates the compile-restart cycle for developing
+// go based servers by monitoring for changes in source files and
+// dependencies.
 package main
 
 import (
