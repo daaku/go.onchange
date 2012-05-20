@@ -20,7 +20,7 @@ var (
 	pattern = flag.String("f", ".",
 		"The regexp pattern to match file names against to watch for changes.")
 	installDeps = flag.Bool("i", true, "Install changed library packages.")
-	verbose = flag.Bool("v", false, "Verbose mode.")
+	verbose     = flag.Bool("v", false, "Verbose mode.")
 
 	process *os.Process
 )
@@ -37,7 +37,7 @@ func restart(importPath string, args []string) {
 	_ = os.Remove(tempFileName) // the build tool will create this
 	options := tool.Options{
 		ImportPaths: []string{importPath},
-		Output: tempFileName,
+		Output:      tempFileName,
 	}
 	affected, err := options.Command("build")
 	defer os.Remove(tempFileName)
