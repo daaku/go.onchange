@@ -20,6 +20,7 @@ var (
 	pattern = flag.String("f", ".",
 		"The regexp pattern to match file names against to watch for changes.")
 	installDeps = flag.Bool("i", true, "Install changed library packages.")
+	runTests    = flag.Bool("t", true, "Run tests for changed packages.")
 	verbose     = flag.Bool("v", false, "Verbose mode.")
 
 	process *os.Process
@@ -80,6 +81,17 @@ func install(importPath string) {
 	}
 }
 
+// Test a package.
+func test(importPath string) {
+	options := tool.Options{
+		ImportPaths: []string{importPath},
+	}
+	_, err := options.Command("test")
+	if err != nil {
+		log.Print(err)
+	}
+}
+
 func main() {
 	flag.Parse()
 	importPath := flag.Arg(0)
@@ -112,6 +124,9 @@ func main() {
 						log.Printf("Installing changed package: %s", ev.Package.ImportPath)
 					}
 					install(ev.Package.ImportPath)
+				}
+				if *runTests {
+					test(ev.Package.ImportPath)
 				}
 			} else {
 				if *verbose {
