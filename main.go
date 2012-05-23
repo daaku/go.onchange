@@ -122,6 +122,7 @@ func main() {
 					log.Printf("Change triggered restart: %s", ev.Name)
 				}
 				restart(importPath, args)
+				watcher.WatchImportPath(ev.Package.ImportPath, true)
 				if *installAll {
 					if *verbose {
 						log.Printf("Installing all packages.")
