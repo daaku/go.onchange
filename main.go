@@ -19,9 +19,9 @@ import (
 var (
 	pattern = flag.String("f", ".",
 		"The regexp pattern to match file names against to watch for changes.")
-	installDeps = flag.Bool("i", true, "Install changed library packages.")
-	runTests    = flag.Bool("t", true, "Run tests for changed packages.")
-	verbose     = flag.Bool("v", false, "Verbose mode.")
+	installAll = flag.Bool("i", true, "Install packages on change.")
+	runTests   = flag.Bool("t", true, "Run tests on change.")
+	verbose    = flag.Bool("v", false, "Verbose mode.")
 
 	process *os.Process
 )
@@ -108,6 +108,9 @@ func main() {
 	}
 	restart(importPath, args)
 	for {
+		if *verbose {
+			log.Printf("Main loop iteration.")
+		}
 		select {
 		case ev := <-watcher.Event:
 			if filepath.Base(ev.Name)[0] == '.' {
@@ -119,13 +122,16 @@ func main() {
 					log.Printf("Change triggered restart: %s", ev.Name)
 				}
 				restart(importPath, args)
-				if *installDeps && !ev.Package.IsCommand() {
+				if *installAll {
 					if *verbose {
-						log.Printf("Installing changed package: %s", ev.Package.ImportPath)
+						log.Printf("Installing all packages.")
 					}
-					install(ev.Package.ImportPath)
+					install("all")
 				}
 				if *runTests {
+					if *verbose {
+						log.Printf("Testing %s.", ev.Package.ImportPath)
+					}
 					test(ev.Package.ImportPath)
 				}
 			} else {
