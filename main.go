@@ -7,8 +7,8 @@ package main
 
 import (
 	"flag"
-	"github.com/nshah/go.pkgwatcher"
-	"github.com/nshah/go.tool"
+	"github.com/daaku/go.pkgwatcher"
+	"github.com/daaku/go.tool"
 	"io/ioutil"
 	"log"
 	"os"

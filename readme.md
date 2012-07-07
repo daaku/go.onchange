@@ -8,12 +8,12 @@ as necessary.
 Installation:
 
 ```sh
-go install github.com/nshah/go.onchange
+go install github.com/daaku/go.onchange
 ```
 
-For example, to run the command contained in `github.com/nshah/go.rell`:
+For example, to run the command contained in `github.com/daaku/rell`:
 
 ```sh
-go get github.com/nshah/go.rell
-go.onchange github.com/nshah/go.rell
+go get github.com/daaku/rell
+go.onchange github.com/daaku/rell
 ```
