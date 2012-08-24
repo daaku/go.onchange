@@ -7,6 +7,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/daaku/go.pkgwatcher"
 	"github.com/daaku/go.tool"
 	"io/ioutil"
@@ -22,6 +23,7 @@ var (
 	installAll = flag.Bool("i", true, "Install packages on change.")
 	runTests   = flag.Bool("t", true, "Run tests on change.")
 	verbose    = flag.Bool("v", false, "Verbose mode.")
+	clear      = flag.Bool("c", true, "Clear display on restart.")
 
 	process *os.Process
 )
@@ -66,6 +68,11 @@ func restart(importPath string, args []string) {
 	})
 	if err != nil {
 		log.Printf("Failed to run command: %s", err)
+		return
+	}
+	if *clear {
+		fmt.Printf("\033[2J")
+		fmt.Printf("\033[H")
 	}
 }
 
