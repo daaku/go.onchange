@@ -30,6 +30,10 @@ var (
 
 // Compile & Run.
 func restart(importPath string, args []string) {
+	if *clear {
+		fmt.Printf("\033[2J")
+		fmt.Printf("\033[H")
+	}
 	basename := filepath.Base(importPath)
 	tempFile, err := ioutil.TempFile("", basename+"-")
 	if err != nil {
@@ -69,10 +73,6 @@ func restart(importPath string, args []string) {
 	if err != nil {
 		log.Printf("Failed to run command: %s", err)
 		return
-	}
-	if *clear {
-		fmt.Printf("\033[2J")
-		fmt.Printf("\033[H")
 	}
 }
 
