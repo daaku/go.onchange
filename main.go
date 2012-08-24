@@ -15,25 +15,46 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 )
 
 var (
 	pattern = flag.String("f", ".",
 		"The regexp pattern to match file names against to watch for changes.")
-	installAll = flag.Bool("i", true, "Install packages on change.")
-	runTests   = flag.Bool("t", true, "Run tests on change.")
-	verbose    = flag.Bool("v", false, "Verbose mode.")
-	clear      = flag.Bool("c", true, "Clear display on restart.")
+	installAll  = flag.Bool("i", true, "Install packages on change.")
+	runTests    = flag.Bool("t", true, "Run tests on change.")
+	verbose     = flag.Bool("v", false, "Verbose mode.")
+	clearEnable = flag.Bool("c", true, "Clear display on restart.")
+	restartLock = new(sync.Mutex)
 
-	process *os.Process
+	lastCommandError *tool.CommandError
+	process          *os.Process
 )
 
-// Compile & Run.
-func restart(importPath string, args []string) {
-	if *clear {
+func clear() {
+	if *clearEnable {
 		fmt.Printf("\033[2J")
 		fmt.Printf("\033[H")
 	}
+}
+
+// Checks and also updates the last command.
+func isSameAsLastCommandError(err error) bool {
+	commandError, ok := err.(*tool.CommandError)
+	if !ok {
+		return false
+	}
+	if lastCommandError != nil && lastCommandError.StdErr().String() == commandError.StdErr().String() {
+		return true
+	}
+	lastCommandError = commandError
+	return false
+}
+
+// Compile & Run.
+func restart(importPath string, args []string) {
+	restartLock.Lock()
+	defer restartLock.Unlock()
 	basename := filepath.Base(importPath)
 	tempFile, err := ioutil.TempFile("", basename+"-")
 	if err != nil {
@@ -49,6 +70,10 @@ func restart(importPath string, args []string) {
 	affected, err := options.Command("build")
 	defer os.Remove(tempFileName)
 	if err != nil {
+		if isSameAsLastCommandError(err) {
+			return
+		}
+		clear()
 		log.Print(err)
 		return
 	}
@@ -58,6 +83,7 @@ func restart(importPath string, args []string) {
 		}
 		return // nothing was changed, don't restart
 	}
+	clear()
 	if process != nil {
 		process.Kill()
 		process.Wait()
@@ -81,11 +107,7 @@ func install(importPath string) {
 	options := tool.Options{
 		ImportPaths: []string{importPath},
 	}
-	_, err := options.Command("install")
-	// only output in verbose since restart() will most likely echo this too.
-	if *verbose && err != nil {
-		log.Print(err)
-	}
+	options.Command("install")
 }
 
 // Test a package.
@@ -94,7 +116,7 @@ func test(importPath string) {
 		ImportPaths: []string{importPath},
 	}
 	_, err := options.Command("test")
-	if err != nil {
+	if err != nil && !isSameAsLastCommandError(err) {
 		log.Print(err)
 	}
 }
