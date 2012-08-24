@@ -20,11 +20,11 @@ import (
 
 var (
 	pattern = flag.String("f", ".",
-		"The regexp pattern to match file names against to watch for changes.")
-	installAll  = flag.Bool("i", true, "Install packages on change.")
-	runTests    = flag.Bool("t", true, "Run tests on change.")
-	verbose     = flag.Bool("v", false, "Verbose mode.")
-	clearEnable = flag.Bool("c", true, "Clear display on restart.")
+		"regexp pattern to match file names against to watch for changes")
+	installAll  = flag.Bool("i", true, "install all packages on change")
+	runTests    = flag.Bool("t", true, "run tests on change")
+	verbose     = flag.Bool("v", false, "verbose")
+	clearEnable = flag.Bool("c", true, "clear on restart")
 	eventLock   = new(sync.Mutex)
 
 	lastCommandError *tool.CommandError
