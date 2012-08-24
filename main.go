@@ -25,10 +25,18 @@ var (
 	runTests    = flag.Bool("t", true, "Run tests on change.")
 	verbose     = flag.Bool("v", false, "Verbose mode.")
 	clearEnable = flag.Bool("c", true, "Clear display on restart.")
-	restartLock = new(sync.Mutex)
+	eventLock   = new(sync.Mutex)
 
 	lastCommandError *tool.CommandError
 	process          *os.Process
+)
+
+type restartResult int
+
+const (
+	restartNecessary restartResult = iota
+	restartUnnecessary
+	restartBuildFailed
 )
 
 func clear() {
@@ -44,7 +52,7 @@ func isSameAsLastCommandError(err error) bool {
 	if !ok {
 		return false
 	}
-	if lastCommandError != nil && lastCommandError.StdErr().String() == commandError.StdErr().String() {
+	if lastCommandError != nil && string(lastCommandError.StdErr()) == string(commandError.StdErr()) {
 		return true
 	}
 	lastCommandError = commandError
@@ -52,9 +60,16 @@ func isSameAsLastCommandError(err error) bool {
 }
 
 // Compile & Run.
-func restart(importPath string, args []string) {
-	restartLock.Lock()
-	defer restartLock.Unlock()
+func restart(importPath string, args []string) (result restartResult) {
+	if *verbose {
+		log.Print("restart requested")
+	}
+	result = restartBuildFailed
+	defer func() {
+		if *verbose {
+			log.Printf("restart result: %d", result)
+		}
+	}()
 	basename := filepath.Base(importPath)
 	tempFile, err := ioutil.TempFile("", basename+"-")
 	if err != nil {
@@ -66,22 +81,32 @@ func restart(importPath string, args []string) {
 	options := tool.Options{
 		ImportPaths: []string{importPath},
 		Output:      tempFileName,
+		Verbose:     true,
 	}
 	affected, err := options.Command("build")
+	if *verbose {
+		log.Printf("Affected: %v", affected)
+	}
 	defer os.Remove(tempFileName)
 	if err != nil {
 		if isSameAsLastCommandError(err) {
+			if *verbose {
+				log.Printf("ignoring same as last command error: %s", err)
+			}
+			result = restartUnnecessary
 			return
 		}
 		clear()
 		log.Print(err)
+		result = restartBuildFailed
 		return
 	}
-	if len(affected) == 0 {
+	if process != nil && len(affected) == 0 {
 		if *verbose {
 			log.Print("Ignoring rebuild with zero affected packages.")
 		}
-		return // nothing was changed, don't restart
+		result = restartUnnecessary // nothing was changed, don't restart
+		return
 	}
 	clear()
 	if process != nil {
@@ -98,16 +123,31 @@ func restart(importPath string, args []string) {
 	})
 	if err != nil {
 		log.Printf("Failed to run command: %s", err)
+		result = restartBuildFailed
 		return
 	}
+	result = restartNecessary
+	return
 }
 
 // Install a library package.
-func install(importPath string) {
+func install(importPath string) restartResult {
 	options := tool.Options{
 		ImportPaths: []string{importPath},
+		Verbose:     true,
 	}
-	options.Command("install")
+	affected, err := options.Command("install")
+	if *verbose {
+		if err != nil {
+			log.Printf("Install Error: %v", err)
+		} else {
+			log.Printf("Install Affected: %v", affected)
+		}
+	}
+	if err == nil && len(affected) == 0 {
+		return restartUnnecessary
+	}
+	return restartNecessary
 }
 
 // Test a package.
@@ -118,6 +158,58 @@ func test(importPath string) {
 	_, err := options.Command("test")
 	if err != nil && !isSameAsLastCommandError(err) {
 		log.Print(err)
+	}
+}
+
+type Monitor struct {
+	IncludePattern *regexp.Regexp
+	Watcher        *pkgwatcher.Watcher
+	ImportPath     string
+	Args           []string
+}
+
+// Watcher event handler.
+func (m *Monitor) event(ev *pkgwatcher.Event) {
+	eventLock.Lock()
+	defer eventLock.Unlock()
+	if filepath.Base(ev.Name)[0] == '.' {
+		if *verbose {
+			log.Printf("Ignored changed dot file %s", ev.Name)
+		}
+	} else if m.IncludePattern.Match([]byte(ev.Name)) {
+		if *verbose {
+			log.Printf("Change triggered restart: %s", ev.Name)
+		}
+		var installR restartResult
+		if *installAll {
+			if *verbose {
+				log.Printf("Installing all packages.")
+			}
+			installR = install("all")
+		} else {
+			installR = install(m.ImportPath)
+		}
+		if installR == restartUnnecessary {
+			if *verbose {
+				log.Printf("Skipping because did not install anything.")
+			}
+			return
+		}
+		restartR := restart(m.ImportPath, m.Args)
+		if restartR == restartUnnecessary {
+			return
+		}
+		go m.Watcher.WatchImportPath(ev.Package.ImportPath, true)
+		if *runTests {
+			if *verbose {
+				log.Printf("Testing %s.", ev.Package.ImportPath)
+			}
+			test(ev.Package.ImportPath)
+		}
+	} else {
+		if *verbose {
+			log.Printf("Ignored changed file %s", ev.Name)
+		}
 	}
 }
 
@@ -135,6 +227,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	monitor := &Monitor{
+		ImportPath:     importPath,
+		IncludePattern: re,
+		Watcher:        watcher,
+		Args:           args,
+	}
 	restart(importPath, args)
 	for {
 		if *verbose {
@@ -142,33 +240,7 @@ func main() {
 		}
 		select {
 		case ev := <-watcher.Event:
-			if filepath.Base(ev.Name)[0] == '.' {
-				if *verbose {
-					log.Printf("Ignored changed dot file %s", ev.Name)
-				}
-			} else if re.Match([]byte(ev.Name)) {
-				if *verbose {
-					log.Printf("Change triggered restart: %s", ev.Name)
-				}
-				restart(importPath, args)
-				go watcher.WatchImportPath(ev.Package.ImportPath, true)
-				if *installAll {
-					if *verbose {
-						log.Printf("Installing all packages.")
-					}
-					install("all")
-				}
-				if *runTests {
-					if *verbose {
-						log.Printf("Testing %s.", ev.Package.ImportPath)
-					}
-					test(ev.Package.ImportPath)
-				}
-			} else {
-				if *verbose {
-					log.Printf("Ignored changed file %s", ev.Name)
-				}
-			}
+			go monitor.event(ev)
 		case err := <-watcher.Error:
 			log.Println("error:", err)
 		}
