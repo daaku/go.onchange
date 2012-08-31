@@ -209,6 +209,22 @@ func (m *Monitor) event(ev *pkgwatcher.Event) {
 	}
 }
 
+// Start the main blocking Monitor loop.
+func (m *Monitor) Start() {
+	m.restart(m.ImportPath, m.Args)
+	for {
+		if m.Verbose {
+			log.Printf("Main loop iteration.")
+		}
+		select {
+		case ev := <-m.Watcher.Event:
+			go m.event(ev)
+		case err := <-m.Watcher.Error:
+			log.Println("error:", err)
+		}
+	}
+}
+
 func main() {
 	monitor := &Monitor{
 		eventLock: new(sync.Mutex),
@@ -229,23 +245,13 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to compile given regexp pattern: %s", monitor.IncludePattern)
 	}
+	monitor.IncludePatternRe = re
+
 	watcher, err := pkgwatcher.NewWatcher([]string{monitor.ImportPath}, "")
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	monitor.IncludePatternRe = re
 	monitor.Watcher = watcher
-	monitor.restart(monitor.ImportPath, monitor.Args)
-	for {
-		if monitor.Verbose {
-			log.Printf("Main loop iteration.")
-		}
-		select {
-		case ev := <-watcher.Event:
-			go monitor.event(ev)
-		case err := <-watcher.Error:
-			log.Println("error:", err)
-		}
-	}
+
+	monitor.Start()
 }
