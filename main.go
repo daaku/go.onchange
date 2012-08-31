@@ -220,24 +220,24 @@ func main() {
 	flag.BoolVar(&monitor.ClearScreen, "c", true, "clear screen on restart")
 	flag.Parse()
 
-	importPath := flag.Arg(0)
+	monitor.ImportPath = flag.Arg(0)
 	args := append(
-		[]string{filepath.Base(importPath)}, flag.Args()[1:flag.NArg()]...)
+		[]string{filepath.Base(monitor.ImportPath)},
+		flag.Args()[1:flag.NArg()]...)
 
 	re, err := regexp.Compile(monitor.WatchPattern)
 	if err != nil {
 		log.Fatal("Failed to compile given regexp pattern: %s", monitor.Watcher)
 	}
-	watcher, err := pkgwatcher.NewWatcher([]string{importPath}, "")
+	watcher, err := pkgwatcher.NewWatcher([]string{monitor.ImportPath}, "")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	monitor.ImportPath = importPath
 	monitor.IncludePattern = re
 	monitor.Watcher = watcher
 	monitor.Args = args
-	monitor.restart(importPath, args)
+	monitor.restart(monitor.ImportPath, args)
 	for {
 		if monitor.Verbose {
 			log.Printf("Main loop iteration.")
