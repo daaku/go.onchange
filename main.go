@@ -52,7 +52,8 @@ func (m *Monitor) Printf(format string, v ...interface{}) {
 	}
 }
 
-func (m *Monitor) clear() {
+// Clear the screen if configured to do so.
+func (m *Monitor) Clear() {
 	if m.ClearScreen {
 		fmt.Printf("\033[2J")
 		fmt.Printf("\033[H")
@@ -74,7 +75,7 @@ func (m *Monitor) isSameAsLastCommandError(err error) bool {
 }
 
 // Compile & Run.
-func (m *Monitor) restart() (result restartResult) {
+func (m *Monitor) Restart() (result restartResult) {
 	m.Printf("restart requested")
 	result = restartBuildFailed
 	defer m.Printf("restart result: %d", result)
@@ -101,7 +102,7 @@ func (m *Monitor) restart() (result restartResult) {
 			result = restartUnnecessary
 			return
 		}
-		m.clear()
+		m.Clear()
 		log.Print(err)
 		result = restartBuildFailed
 		return
@@ -111,7 +112,7 @@ func (m *Monitor) restart() (result restartResult) {
 		result = restartUnnecessary // nothing was changed, don't restart
 		return
 	}
-	m.clear()
+	m.Clear()
 	if m.process != nil {
 		m.process.Kill()
 		m.process.Wait()
@@ -134,7 +135,7 @@ func (m *Monitor) restart() (result restartResult) {
 }
 
 // Install a library package.
-func (m *Monitor) install(importPath string) restartResult {
+func (m *Monitor) Install(importPath string) restartResult {
 	options := tool.Options{
 		ImportPaths: []string{importPath},
 		Verbose:     true,
@@ -152,7 +153,7 @@ func (m *Monitor) install(importPath string) restartResult {
 }
 
 // Test a package.
-func (m *Monitor) test(importPath string) {
+func (m *Monitor) Test(importPath string) {
 	options := tool.Options{
 		ImportPaths: []string{importPath},
 	}
@@ -176,7 +177,7 @@ func (m *Monitor) ShouldIgnore(name string) bool {
 }
 
 // Watcher event handler.
-func (m *Monitor) event(ev *pkgwatcher.Event) {
+func (m *Monitor) Event(ev *pkgwatcher.Event) {
 	if m.ShouldIgnore(ev.Name) {
 		return
 	}
@@ -187,26 +188,26 @@ func (m *Monitor) event(ev *pkgwatcher.Event) {
 	m.Printf("Change triggered restart: %+v", ev)
 	var installR restartResult
 	m.Printf("Installing all packages.")
-	installR = m.install("all")
+	installR = m.Install("all")
 	if installR == restartUnnecessary {
 		m.Printf("Skipping because did not install anything.")
 	} else {
-		m.restart()
+		m.Restart()
 	}
 	if m.RunTests {
 		m.Printf("Testing %s.", ev.Package.ImportPath)
-		m.test(ev.Package.ImportPath)
+		m.Test(ev.Package.ImportPath)
 	}
 }
 
 // Start the main blocking Monitor loop.
 func (m *Monitor) Start() {
-	m.restart()
+	m.Restart()
 	for {
 		m.Printf("Main loop iteration.")
 		select {
 		case ev := <-m.Watcher.Event:
-			go m.event(ev)
+			go m.Event(ev)
 		case err := <-m.Watcher.Error:
 			log.Println("watcher error:", err)
 		}
