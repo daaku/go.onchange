@@ -24,11 +24,11 @@ import (
 
 // The main Monitor instance.
 type Monitor struct {
-	WatchPattern     string
+	IncludePattern   string
 	RunTests         bool
 	Verbose          bool
 	ClearScreen      bool
-	IncludePattern   *regexp.Regexp
+	IncludePatternRe *regexp.Regexp
 	Watcher          *pkgwatcher.Watcher
 	ImportPath       string
 	Args             []string
@@ -176,7 +176,7 @@ func (m *Monitor) event(ev *pkgwatcher.Event) {
 		if m.Verbose {
 			log.Printf("Ignored changed dot file %s", ev.Name)
 		}
-	} else if m.IncludePattern.Match([]byte(ev.Name)) {
+	} else if m.IncludePatternRe.Match([]byte(ev.Name)) {
 		if m.Verbose {
 			log.Printf("Change triggered restart: %s", ev.Name)
 		}
@@ -213,7 +213,7 @@ func main() {
 	monitor := &Monitor{
 		eventLock: new(sync.Mutex),
 	}
-	flag.StringVar(&monitor.WatchPattern, "f", ".",
+	flag.StringVar(&monitor.IncludePattern, "f", ".",
 		"regexp pattern to match file names against to watch for changes")
 	flag.BoolVar(&monitor.RunTests, "t", true, "run tests on change")
 	flag.BoolVar(&monitor.Verbose, "v", false, "verbose")
@@ -225,16 +225,16 @@ func main() {
 		[]string{filepath.Base(monitor.ImportPath)},
 		flag.Args()[1:flag.NArg()]...)
 
-	re, err := regexp.Compile(monitor.WatchPattern)
+	re, err := regexp.Compile(monitor.IncludePattern)
 	if err != nil {
-		log.Fatal("Failed to compile given regexp pattern: %s", monitor.Watcher)
+		log.Fatal("Failed to compile given regexp pattern: %s", monitor.IncludePattern)
 	}
 	watcher, err := pkgwatcher.NewWatcher([]string{monitor.ImportPath}, "")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	monitor.IncludePattern = re
+	monitor.IncludePatternRe = re
 	monitor.Watcher = watcher
 	monitor.restart(monitor.ImportPath, monitor.Args)
 	for {
