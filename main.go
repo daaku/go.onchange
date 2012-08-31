@@ -74,11 +74,11 @@ func (m *Monitor) isSameAsLastCommandError(err error) bool {
 }
 
 // Compile & Run.
-func (m *Monitor) restart(importPath string, args []string) (result restartResult) {
+func (m *Monitor) restart() (result restartResult) {
 	m.Printf("restart requested")
 	result = restartBuildFailed
 	defer m.Printf("restart result: %d", result)
-	basename := filepath.Base(importPath)
+	basename := filepath.Base(m.ImportPath)
 	tempFile, err := ioutil.TempFile("", basename+"-")
 	if err != nil {
 		log.Print("Error creating temp file: %s", err)
@@ -87,7 +87,7 @@ func (m *Monitor) restart(importPath string, args []string) (result restartResul
 	tempFileName := tempFile.Name()
 	_ = os.Remove(tempFileName) // the build tool will create this
 	options := tool.Options{
-		ImportPaths: []string{importPath},
+		ImportPaths: []string{m.ImportPath},
 		Output:      tempFileName,
 		Verbose:     true,
 	}
@@ -117,7 +117,7 @@ func (m *Monitor) restart(importPath string, args []string) (result restartResul
 		m.process.Wait()
 		m.process = nil
 	}
-	m.process, err = os.StartProcess(tempFileName, args, &os.ProcAttr{
+	m.process, err = os.StartProcess(tempFileName, m.Args, &os.ProcAttr{
 		Files: []*os.File{
 			nil,
 			os.Stdout,
@@ -140,11 +140,11 @@ func (m *Monitor) install(importPath string) restartResult {
 		Verbose:     true,
 	}
 	affected, err := options.Command("install")
-		if err != nil {
-			m.Printf("Install Error: %v", err)
-		} else {
-			m.Printf("Install Affected: %v", affected)
-		}
+	if err != nil {
+		m.Printf("Install Error: %v", err)
+	} else {
+		m.Printf("Install Affected: %v", affected)
+	}
 	if err == nil && len(affected) == 0 {
 		return restartUnnecessary
 	}
@@ -191,7 +191,7 @@ func (m *Monitor) event(ev *pkgwatcher.Event) {
 		m.Printf("Skipping because did not install anything.")
 		return
 	}
-	restartR := m.restart(m.ImportPath, m.Args)
+	restartR := m.restart()
 	if restartR == restartUnnecessary {
 		return
 	}
@@ -204,7 +204,7 @@ func (m *Monitor) event(ev *pkgwatcher.Event) {
 
 // Start the main blocking Monitor loop.
 func (m *Monitor) Start() {
-	m.restart(m.ImportPath, m.Args)
+	m.restart()
 	for {
 		m.Printf("Main loop iteration.")
 		select {
