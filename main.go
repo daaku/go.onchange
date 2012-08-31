@@ -168,44 +168,55 @@ func (m *Monitor) test(importPath string) {
 	}
 }
 
+// Check if a file change should be ignored.
+func (m *Monitor) ShouldIgnore(name string) bool {
+	if filepath.Base(name)[0] == '.' {
+		if m.Verbose {
+			log.Printf("Ignored changed dot file %s", name)
+		}
+		return true
+	} else if m.IncludePatternRe.Match([]byte(name)) {
+		return false
+	}
+
+	if m.Verbose {
+		log.Printf("Ignored changed file %s", name)
+	}
+	return true
+}
+
 // Watcher event handler.
 func (m *Monitor) event(ev *pkgwatcher.Event) {
+	if m.ShouldIgnore(ev.Name) {
+		return
+	}
+
 	m.eventLock.Lock()
 	defer m.eventLock.Unlock()
-	if filepath.Base(ev.Name)[0] == '.' {
+	if m.Verbose {
+		log.Printf("Change triggered restart: %s", ev.Name)
+	}
+	var installR restartResult
+	if m.Verbose {
+		log.Printf("Installing all packages.")
+	}
+	installR = m.install("all")
+	if installR == restartUnnecessary {
 		if m.Verbose {
-			log.Printf("Ignored changed dot file %s", ev.Name)
+			log.Printf("Skipping because did not install anything.")
 		}
-	} else if m.IncludePatternRe.Match([]byte(ev.Name)) {
+		return
+	}
+	restartR := m.restart(m.ImportPath, m.Args)
+	if restartR == restartUnnecessary {
+		return
+	}
+	go m.Watcher.WatchImportPath(ev.Package.ImportPath, true)
+	if m.RunTests {
 		if m.Verbose {
-			log.Printf("Change triggered restart: %s", ev.Name)
+			log.Printf("Testing %s.", ev.Package.ImportPath)
 		}
-		var installR restartResult
-		if m.Verbose {
-			log.Printf("Installing all packages.")
-		}
-		installR = m.install("all")
-		if installR == restartUnnecessary {
-			if m.Verbose {
-				log.Printf("Skipping because did not install anything.")
-			}
-			return
-		}
-		restartR := m.restart(m.ImportPath, m.Args)
-		if restartR == restartUnnecessary {
-			return
-		}
-		go m.Watcher.WatchImportPath(ev.Package.ImportPath, true)
-		if m.RunTests {
-			if m.Verbose {
-				log.Printf("Testing %s.", ev.Package.ImportPath)
-			}
-			m.test(ev.Package.ImportPath)
-		}
-	} else {
-		if m.Verbose {
-			log.Printf("Ignored changed file %s", ev.Name)
-		}
+		m.test(ev.Package.ImportPath)
 	}
 }
 
