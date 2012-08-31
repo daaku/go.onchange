@@ -51,14 +51,6 @@ type Monitor struct {
 	process          *os.Process
 }
 
-type restartResult int
-
-const (
-	restartNecessary restartResult = iota
-	restartUnnecessary
-	restartBuildFailed
-)
-
 // Printf for verbose mode.
 func (m *Monitor) Printf(format string, v ...interface{}) {
 	if m.Verbose {
@@ -114,8 +106,8 @@ func (m *Monitor) Restart() {
 	}
 }
 
-// Install a library package.
-func (m *Monitor) Install(importPath string) restartResult {
+// Install package(s). Returns true if packages were successfully installed.
+func (m *Monitor) Install(importPath string) bool {
 	options := tool.Options{
 		ImportPaths: []string{importPath},
 		Verbose:     true,
@@ -123,13 +115,13 @@ func (m *Monitor) Install(importPath string) restartResult {
 	affected, err := options.Command("install")
 	if err != nil {
 		m.Printf("Install Error: %v", err)
-	} else {
-		m.Printf("Install Affected: %v", affected)
+		return false
 	}
-	if err == nil && len(affected) == 0 {
-		return restartUnnecessary
+	m.Printf("Install Affected: %v", affected)
+	if len(affected) == 0 {
+		return false
 	}
-	return restartNecessary
+	return true
 }
 
 // Test a package.
@@ -166,13 +158,12 @@ func (m *Monitor) Event(ev *pkgwatcher.Event) {
 	m.eventLock.Lock()
 	defer m.eventLock.Unlock()
 	m.Printf("Change triggered restart: %+v", ev)
-	var installR restartResult
 	m.Printf("Installing all packages.")
-	installR = m.Install("all")
-	if installR == restartUnnecessary {
-		m.Printf("Skipping because did not install anything.")
-	} else {
+	did := m.Install("all")
+	if did {
 		m.Restart()
+	} else {
+		m.Printf("Skipping because did not install anything.")
 	}
 	if m.RunTests {
 		m.Printf("Testing %s.", ev.Package.ImportPath)
