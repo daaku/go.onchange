@@ -1,8 +1,12 @@
-// Command go.onchange automates the compile-restart cycle for developing
-// go based servers by monitoring for changes in source files and
-// dependencies. It can additionally also install packages as they
-// change in order to allow the gocode autocomplete daemon to be able
-// to find upto date information.
+// Command go.onchange automates the compile-restart-test cycle for
+// developing go based applications by monitoring for changes in source
+// files and dependencies.
+
+// It will:
+//     - Install packages.
+//     - Restart application.
+//     - Run relevant tests.
+//     - Clear the screen between cyles to provide a clean log view.
 package main
 
 import (
