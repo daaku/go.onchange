@@ -45,6 +45,13 @@ const (
 	restartBuildFailed
 )
 
+// Printf for verbose mode.
+func (m *Monitor) Printf(format string, v ...interface{}) {
+	if m.Verbose {
+		log.Printf(format, v...)
+	}
+}
+
 func (m *Monitor) clear() {
 	if m.ClearScreen {
 		fmt.Printf("\033[2J")
@@ -68,15 +75,9 @@ func (m *Monitor) isSameAsLastCommandError(err error) bool {
 
 // Compile & Run.
 func (m *Monitor) restart(importPath string, args []string) (result restartResult) {
-	if m.Verbose {
-		log.Print("restart requested")
-	}
+	m.Printf("restart requested")
 	result = restartBuildFailed
-	defer func() {
-		if m.Verbose {
-			log.Printf("restart result: %d", result)
-		}
-	}()
+	defer m.Printf("restart result: %d", result)
 	basename := filepath.Base(importPath)
 	tempFile, err := ioutil.TempFile("", basename+"-")
 	if err != nil {
@@ -91,15 +92,12 @@ func (m *Monitor) restart(importPath string, args []string) (result restartResul
 		Verbose:     true,
 	}
 	affected, err := options.Command("build")
-	if m.Verbose {
-		log.Printf("Affected: %v", affected)
-	}
+	m.Printf("Affected: %v", affected)
+
 	defer os.Remove(tempFileName)
 	if err != nil {
 		if m.isSameAsLastCommandError(err) {
-			if m.Verbose {
-				log.Printf("ignoring same as last command error: %s", err)
-			}
+			m.Printf("ignoring same as last command error: %s", err)
 			result = restartUnnecessary
 			return
 		}
@@ -109,9 +107,7 @@ func (m *Monitor) restart(importPath string, args []string) (result restartResul
 		return
 	}
 	if m.process != nil && len(affected) == 0 {
-		if m.Verbose {
-			log.Print("Ignoring rebuild with zero affected packages.")
-		}
+		m.Printf("Ignoring rebuild with zero affected packages.")
 		result = restartUnnecessary // nothing was changed, don't restart
 		return
 	}
@@ -144,13 +140,11 @@ func (m *Monitor) install(importPath string) restartResult {
 		Verbose:     true,
 	}
 	affected, err := options.Command("install")
-	if m.Verbose {
 		if err != nil {
-			log.Printf("Install Error: %v", err)
+			m.Printf("Install Error: %v", err)
 		} else {
-			log.Printf("Install Affected: %v", affected)
+			m.Printf("Install Affected: %v", affected)
 		}
-	}
 	if err == nil && len(affected) == 0 {
 		return restartUnnecessary
 	}
@@ -171,17 +165,13 @@ func (m *Monitor) test(importPath string) {
 // Check if a file change should be ignored.
 func (m *Monitor) ShouldIgnore(name string) bool {
 	if filepath.Base(name)[0] == '.' {
-		if m.Verbose {
-			log.Printf("Ignored changed dot file %s", name)
-		}
+		m.Printf("Ignored changed dot file %s", name)
 		return true
 	} else if m.IncludePatternRe.Match([]byte(name)) {
 		return false
 	}
 
-	if m.Verbose {
-		log.Printf("Ignored changed file %s", name)
-	}
+	m.Printf("Ignored changed file %s", name)
 	return true
 }
 
@@ -193,18 +183,12 @@ func (m *Monitor) event(ev *pkgwatcher.Event) {
 
 	m.eventLock.Lock()
 	defer m.eventLock.Unlock()
-	if m.Verbose {
-		log.Printf("Change triggered restart: %s", ev.Name)
-	}
+	m.Printf("Change triggered restart: %s", ev.Name)
 	var installR restartResult
-	if m.Verbose {
-		log.Printf("Installing all packages.")
-	}
+	m.Printf("Installing all packages.")
 	installR = m.install("all")
 	if installR == restartUnnecessary {
-		if m.Verbose {
-			log.Printf("Skipping because did not install anything.")
-		}
+		m.Printf("Skipping because did not install anything.")
 		return
 	}
 	restartR := m.restart(m.ImportPath, m.Args)
@@ -213,9 +197,7 @@ func (m *Monitor) event(ev *pkgwatcher.Event) {
 	}
 	go m.Watcher.WatchImportPath(ev.Package.ImportPath, true)
 	if m.RunTests {
-		if m.Verbose {
-			log.Printf("Testing %s.", ev.Package.ImportPath)
-		}
+		m.Printf("Testing %s.", ev.Package.ImportPath)
 		m.test(ev.Package.ImportPath)
 	}
 }
@@ -224,9 +206,7 @@ func (m *Monitor) event(ev *pkgwatcher.Event) {
 func (m *Monitor) Start() {
 	m.restart(m.ImportPath, m.Args)
 	for {
-		if m.Verbose {
-			log.Printf("Main loop iteration.")
-		}
+		m.Printf("Main loop iteration.")
 		select {
 		case ev := <-m.Watcher.Event:
 			go m.event(ev)
