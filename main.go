@@ -33,6 +33,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 )
 
@@ -48,6 +49,7 @@ type Monitor struct {
 	Args             []string
 	eventLock        sync.Locker
 	lastCommandError *tool.CommandError
+	lastTestFailed   bool
 	process          *os.Process
 }
 
@@ -130,8 +132,16 @@ func (m *Monitor) Test(importPath string) {
 		ImportPaths: []string{importPath},
 	}
 	_, err := options.Command("test")
-	if err != nil && !m.isSameAsLastCommandError(err) {
-		log.Print(err)
+	if err != nil {
+		if !m.isSameAsLastCommandError(err) {
+			log.Print(err)
+		}
+		m.lastTestFailed = true
+	} else {
+		if m.lastTestFailed {
+			log.Print("test passed")
+			m.lastTestFailed = false
+		}
 	}
 }
 
@@ -164,6 +174,10 @@ func (m *Monitor) Event(ev *pkgwatcher.Event) {
 		m.Restart()
 	} else {
 		m.Printf("Skipping because did not install anything.")
+	}
+	// force showing errors for test changes
+	if strings.Contains(ev.Name, "_test.go") {
+		m.lastCommandError = nil
 	}
 	if m.RunTests {
 		m.Printf("Testing %s.", ev.Package.ImportPath)
