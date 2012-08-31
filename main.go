@@ -7,6 +7,20 @@
 //     - Restart application.
 //     - Run relevant tests.
 //     - Clear the screen between cyles to provide a clean log view.
+//
+// Installation:
+//
+//     go get github.com/daaku/go.onchange
+//
+// Usage:
+//
+//     go get github.com/daaku/rell
+//     go.onchange github.com/daaku/rell
+//
+// TODO:
+//     - Colors.
+//     - Intelligent test execution.
+//     - Intelligent screen clearing while working on tests.
 package main
 
 import (
