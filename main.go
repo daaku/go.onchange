@@ -220,7 +220,7 @@ func (m *Monitor) Start() {
 		case ev := <-m.Watcher.Event:
 			go m.event(ev)
 		case err := <-m.Watcher.Error:
-			log.Println("error:", err)
+			log.Println("watcher error:", err)
 		}
 	}
 }
