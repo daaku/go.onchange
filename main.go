@@ -14,9 +14,9 @@ import (
 	"fmt"
 	"github.com/daaku/go.pkgwatcher"
 	"github.com/daaku/go.tool"
-	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sync"
@@ -74,42 +74,12 @@ func (m *Monitor) isSameAsLastCommandError(err error) bool {
 	return false
 }
 
-// Compile & Run.
-func (m *Monitor) Restart() (result restartResult) {
+// Restart already installed binary.
+func (m *Monitor) Restart() {
 	m.Printf("restart requested")
-	result = restartBuildFailed
-	defer m.Printf("restart result: %d", result)
-	basename := filepath.Base(m.ImportPath)
-	tempFile, err := ioutil.TempFile("", basename+"-")
+	bin, err := exec.LookPath(filepath.Base(m.ImportPath))
 	if err != nil {
-		log.Print("Error creating temp file: %s", err)
-		return
-	}
-	tempFileName := tempFile.Name()
-	_ = os.Remove(tempFileName) // the build tool will create this
-	options := tool.Options{
-		ImportPaths: []string{m.ImportPath},
-		Output:      tempFileName,
-		Verbose:     true,
-	}
-	affected, err := options.Command("build")
-	m.Printf("Affected: %v", affected)
-
-	defer os.Remove(tempFileName)
-	if err != nil {
-		if m.isSameAsLastCommandError(err) {
-			m.Printf("ignoring same as last command error: %s", err)
-			result = restartUnnecessary
-			return
-		}
-		m.Clear()
-		log.Print(err)
-		result = restartBuildFailed
-		return
-	}
-	if m.process != nil && len(affected) == 0 {
-		m.Printf("Ignoring rebuild with zero affected packages.")
-		result = restartUnnecessary // nothing was changed, don't restart
+		log.Printf("error finding binary: %s", err)
 		return
 	}
 	m.Clear()
@@ -118,7 +88,7 @@ func (m *Monitor) Restart() (result restartResult) {
 		m.process.Wait()
 		m.process = nil
 	}
-	m.process, err = os.StartProcess(tempFileName, m.Args, &os.ProcAttr{
+	m.process, err = os.StartProcess(bin, m.Args, &os.ProcAttr{
 		Files: []*os.File{
 			nil,
 			os.Stdout,
@@ -126,12 +96,8 @@ func (m *Monitor) Restart() (result restartResult) {
 		},
 	})
 	if err != nil {
-		log.Printf("Failed to run command: %s", err)
-		result = restartBuildFailed
-		return
+		log.Printf("Failed to run command %s: %s", bin, err)
 	}
-	result = restartNecessary
-	return
 }
 
 // Install a library package.
