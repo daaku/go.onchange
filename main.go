@@ -181,21 +181,18 @@ func (m *Monitor) event(ev *pkgwatcher.Event) {
 		return
 	}
 
+	go m.Watcher.WatchImportPath(ev.Package.ImportPath, true)
 	m.eventLock.Lock()
 	defer m.eventLock.Unlock()
-	m.Printf("Change triggered restart: %s", ev.Name)
+	m.Printf("Change triggered restart: %+v", ev)
 	var installR restartResult
 	m.Printf("Installing all packages.")
 	installR = m.install("all")
 	if installR == restartUnnecessary {
 		m.Printf("Skipping because did not install anything.")
-		return
+	} else {
+		m.restart()
 	}
-	restartR := m.restart()
-	if restartR == restartUnnecessary {
-		return
-	}
-	go m.Watcher.WatchImportPath(ev.Package.ImportPath, true)
 	if m.RunTests {
 		m.Printf("Testing %s.", ev.Package.ImportPath)
 		m.test(ev.Package.ImportPath)
