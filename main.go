@@ -221,7 +221,7 @@ func main() {
 	flag.Parse()
 
 	monitor.ImportPath = flag.Arg(0)
-	args := append(
+	monitor.Args = append(
 		[]string{filepath.Base(monitor.ImportPath)},
 		flag.Args()[1:flag.NArg()]...)
 
@@ -236,8 +236,7 @@ func main() {
 
 	monitor.IncludePattern = re
 	monitor.Watcher = watcher
-	monitor.Args = args
-	monitor.restart(monitor.ImportPath, args)
+	monitor.restart(monitor.ImportPath, monitor.Args)
 	for {
 		if monitor.Verbose {
 			log.Printf("Main loop iteration.")
