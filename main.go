@@ -33,6 +33,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 )
@@ -213,6 +214,7 @@ func (m *Monitor) Start() {
 }
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU() + 1)
 	monitor := &Monitor{
 		eventLock: new(sync.Mutex),
 	}
