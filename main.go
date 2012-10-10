@@ -47,6 +47,7 @@ type Monitor struct {
 	Watcher          *pkgwatcher.Watcher
 	ImportPath       string
 	Args             []string
+	CustomRestart    string
 	eventLock        sync.Locker
 	lastCommandError *tool.CommandError
 	lastTestFailed   bool
@@ -85,7 +86,7 @@ func (m *Monitor) isSameAsLastCommandError(err error) bool {
 // Restart already installed binary.
 func (m *Monitor) Restart() {
 	m.Printf("restart requested")
-	bin, err := exec.LookPath(filepath.Base(m.ImportPath))
+	bin, err := m.RestartBin()
 	if err != nil {
 		log.Printf("error finding binary: %s", err)
 		return
@@ -106,6 +107,18 @@ func (m *Monitor) Restart() {
 	if err != nil {
 		log.Printf("Failed to run command %s: %s", bin, err)
 	}
+}
+
+func (m *Monitor) RestartBin() (string, error) {
+	p := m.CustomRestart
+	if p == "" {
+		p = filepath.Base(m.ImportPath)
+	}
+	bin, err := exec.LookPath(p)
+	if err != nil {
+		return "", fmt.Errorf("error finding binary: %s", err)
+	}
+	return bin, nil
 }
 
 // Install package(s). Returns true if packages were successfully installed.
@@ -208,6 +221,8 @@ func main() {
 	flag.BoolVar(&monitor.RunTests, "t", true, "run tests on change")
 	flag.BoolVar(&monitor.Verbose, "v", false, "verbose")
 	flag.BoolVar(&monitor.ClearScreen, "c", true, "clear screen on restart")
+	flag.StringVar(
+		&monitor.CustomRestart, "restart-command", "", "custom restart command")
 	flag.Parse()
 
 	monitor.ImportPath = flag.Arg(0)
