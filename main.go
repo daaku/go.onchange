@@ -234,7 +234,7 @@ func main() {
 
 	re, err := regexp.Compile(monitor.IncludePattern)
 	if err != nil {
-		log.Fatal("failed to compile given regexp pattern: %s", monitor.IncludePattern)
+		log.Fatalf("failed to compile given regexp pattern: %s", monitor.IncludePattern)
 	}
 	monitor.IncludePatternRe = re
 
